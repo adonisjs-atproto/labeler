@@ -1,0 +1,73 @@
+{{#var controllerName = generators.controllerName(entity.name, true)}}
+{{#var controllerFileName = generators.controllerFileName(entity.name, true)}}
+{{#var redirectFn = usingInertia ? "inertia.location" : "response.redirect().toPath" }}
+{{{
+  exports({
+    to: app.httpControllersPath(entity.path, controllerFileName)
+  })
+}}}
+import type { HttpContext } from '@adonisjs/core/http'
+import { OAuthResolverError } from '@atproto/oauth-client-node'
+import { loginRequestValidator, signupRequestValidator } from '#validators/oauth'
+
+export default class OAuthController {
+  async login({ request, response{{ usingInertia ? ", inertia" : ""}}, oauth, logger }: HttpContext) {
+    // input should be a handle or service URL:
+    const { input } = await request.validateUsing(loginRequestValidator)
+    try {
+      const authorizationUrl = await oauth.authorize(input)
+
+      {{ redirectFn }}(authorizationUrl)
+    } catch (err) {
+      logger.error(err, 'Error starting AT Protocol OAuth flow')
+      if (err instanceof OAuthResolverError) {
+        // Handle the input not being AT Protocol OAuth compatible
+      }
+
+      response.redirect().back()
+    }
+  }
+
+  async signup({ request, response{{ usingInertia ? ", inertia" : ""}}, oauth }: HttpContext) {
+    // input should be a service URL:
+    const { input } = await request.validateUsing(signupRequestValidator)
+    const service = input ?? 'https://bsky.social'
+    const registrationSupported = await oauth.canRegister(service)
+
+    if (!registrationSupported) {
+      // Handle registration not supported, you may want to special case for
+      // bsky.social which has public registration behind a click.
+
+      return response.abort('Registration not supported')
+    }
+
+    const authorizationUrl = await oauth.register(service)
+
+    {{ redirectFn }}(authorizationUrl)
+  }
+
+  async logout({ auth, oauth, response }: HttpContext) {
+    await oauth.logout(auth.user?.did)
+    await auth.use('web').logout()
+
+    return response.redirect().back()
+  }
+
+  async callback({ response, oauth, auth, logger }: HttpContext) {
+    try {
+      const session = await oauth.handleCallback()
+
+      await auth.use('web').login(session.user)
+
+      // You'll probably want to check if you have an "account" according to Tap
+      // or some other method, and if not redirect to an onboarding flow
+
+      return response.redirect().toPath('/')
+    } catch (err) {
+      // Handle OAuth failing
+      logger.error(err, 'Error completing AT Protocol OAuth flow')
+
+      return response.redirect().toPath('/')
+    }
+  }
+}
