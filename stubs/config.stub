@@ -1,0 +1,22 @@
+{{{
+  exports({ to: app.configPath('atproto_labeler.ts') })
+}}}
+
+{{#if useLucid }}
+import {
+  defineConfig,
+} from '@thisismissem/adonisjs-atproto-labeler'
+{{#else}}
+import { defineConfig } from '@thisismissem/adonisjs-atproto-labeler'
+{{/if}}
+import env from '#start/env'
+
+export default defineConfig({
+  serviceDid: env.get('ATPROTO_LABELER_DID'),
+  signingKey: env.get('ATPROTO_LABELER_SIGNING_KEY'),
+{{#if useLucid }}
+  store: {},
+{{# else }}
+  store: {},
+{{/if}}
+})

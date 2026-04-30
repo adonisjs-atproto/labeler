@@ -32,44 +32,41 @@ export async function configure(command: Configure) {
     )
   }
 
-  const useLucid = await command.prompt.confirm(
-    `Do you want to use Lucid for storing Labels?`,
-    { default: true }
-  )
+  const useLucid = await command.prompt.confirm(`Do you want to use Lucid for storing Labels?`, {
+    default: true,
+  })
 
   const codemods = await command.createCodemods()
-  const packagesToInstall: Packages = [
-    // { name: '@atproto-labs/simple-store', isDevDependency: false },
-  ]
+  const packagesToInstall: Packages = [{ name: '@atcute/cbor', isDevDependency: true }]
 
   if (shouldInstallPackages) {
     await codemods.installPackages(packagesToInstall)
   }
 
   // Publish config file
-  await codemods.makeUsingStub(stubsRoot, 'config/atproto_labeler.stub', {
+  await codemods.makeUsingStub(stubsRoot, 'config.stub', {
     useLucid,
   })
 
   // Add provider to rc file
   await codemods.updateRcFile((rcFile) => {
     rcFile.addProvider(`${packageName}/provider`)
+    rcFile.addCommand(`${packageName}/commands`)
   })
 
   // Add migrations:
   if (useLucid) {
-    await codemods.makeUsingStub(stubsRoot, 'migrations/labels.stub', {
-      entity: command.app.generators.createEntity('labels'),
-      migration: {
-        folder: 'database/migrations',
-        fileName: `${new Date().getTime()}_create_labels_table.ts`,
-      },
-    })
-
-    // Add models:
-    await codemods.makeUsingStub(stubsRoot, 'models/labels.stub', {
-      entity: command.app.generators.createEntity('labels'),
-    })
+    // await codemods.makeUsingStub(stubsRoot, 'migrations/labels.stub', {
+    //   entity: command.app.generators.createEntity('labels'),
+    //   migration: {
+    //     folder: 'database/migrations',
+    //     fileName: `${new Date().getTime()}_create_labels_table.ts`,
+    //   },
+    // })
+    // // Add models:
+    // await codemods.makeUsingStub(stubsRoot, 'models/labels.stub', {
+    //   entity: command.app.generators.createEntity('labels'),
+    // })
   }
 
   // Register the middleware:
@@ -79,10 +76,16 @@ export async function configure(command: Configure) {
     },
   ])
 
-  await codemods.defineEnvVariables({})
+  await codemods.defineEnvVariables({
+    ATPROTO_LABELER_DID: 'did:plc:123',
+    ATPROTO_LABELER_SIGNING_KEY: 'abc',
+  })
 
   await codemods.defineEnvValidations({
-    variables: {},
+    variables: {
+      ATPROTO_LABELER_DID: 'Env.schema.string()',
+      ATPROTO_LABELER_SIGNING_KEY: `Env.schema.secret()`,
+    },
     leadingComment: 'Variables for configuring the AT Protocol Labeler',
   })
 
