@@ -96,6 +96,8 @@ export async function configure(command: Configure) {
   if (!shouldInstallPackages) instructions.add('Install the packages listed below')
   if (useLucid) {
     instructions.add('Run the migrations: node ace migration:run')
+  } else {
+    instructions.add('Modify config/atproto_labeler.ts to configure your chosen store')
   }
   instructions.render()
 

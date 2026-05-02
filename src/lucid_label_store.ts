@@ -109,16 +109,14 @@ export class LucidLabelStore implements LabelStore {
   }
 }
 
-export function lucidLabelStore(loader: LabelModelLoader): LucidLabelStore {
-  return new LucidLabelStore(loader)
-}
-
 function hydrateSignedLabel(row: InstanceType<LabelModel>): SignedLabel {
   // Reconstruct optional-field shape for sig-verifiable round-trip.
   // The original signed CBOR omitted optional fields when absent; including
   // `neg: false` or `cid: null` here would produce different CBOR bytes
   // and the sig would not verify on a downstream subscriber.
   return {
+    // row.src/uri are validated DID/URI strings on write (via @atcute/labeler upstream);
+    // these casts satisfy SignedLabel's branded template-literal types that string columns can't infer.
     src: row.src as `did:${string}:${string}`,
     uri: row.uri as `${string}:${string}`,
     val: row.val,
@@ -129,4 +127,8 @@ function hydrateSignedLabel(row: InstanceType<LabelModel>): SignedLabel {
     ...(row.exp !== null && { exp: row.exp }),
     ...(row.ver !== null && { ver: row.ver }),
   }
+}
+
+export function lucidLabelStore(loader: LabelModelLoader): LucidLabelStore {
+  return new LucidLabelStore(loader)
 }

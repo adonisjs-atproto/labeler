@@ -1,8 +1,8 @@
 import { test } from '@japa/runner'
+import { afterCreate } from '@adonisjs/lucid/orm'
+import { fromBytes, toBytes } from '@atcute/cbor'
 import { LabelStoreError, LucidLabelStore, lucidLabelStore } from '../src/lucid_label_store.js'
 import { setupApp, createLabelsTable, TestLabel } from './helpers.js'
-import { toBytes } from '@atcute/cbor'
-import { afterCreate } from '@adonisjs/lucid/orm'
 
 test.group('LabelStoreError', () => {
   test('has name "LabelStoreError"', ({ assert }) => {
@@ -46,10 +46,8 @@ test.group('LucidLabelStore lazy model resolution', () => {
       return { default: fakeModel }
     })
 
-    // Internal probe — see Step 3 for the getModelForTest method
-    const probe = store as any
-    await probe.getModelForTest()
-    await probe.getModelForTest()
+    await store.getModelForTest()
+    await store.getModelForTest()
     assert.equal(loaderCalls, 1)
   })
 })
@@ -324,7 +322,7 @@ test.group('LucidLabelStore round-trip fidelity', (group) => {
     assert.equal(got.cts, '2026-05-01T12:34:56.789Z')
     assert.equal(got.exp, '2027-01-01T00:00:00.000Z')
     assert.equal(got.ver, 1)
-    assert.deepEqual(Array.from((got.sig as any).buf), [10, 20, 30])
+    assert.deepEqual(Array.from(fromBytes(got.sig)), [10, 20, 30])
   })
 
   test('omits absent optional fields in returned SignedLabel (critical for sig verify)', async ({

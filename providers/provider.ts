@@ -28,7 +28,7 @@ export default class AtProtoProvider {
 
       if (!config.store) {
         throw new RuntimeException(
-          'Invalid config exported from "config/atproto-labeler.ts" file. Missing correct `stores` provider'
+          'Invalid config exported from "config/atproto-labeler.ts" file. Missing correct `store` provider'
         )
       }
 

@@ -15,6 +15,10 @@ export const IMPORTER = (filePath: string) => {
  * Returns an isolated app instance with @adonisjs/lucid + better-sqlite3
  * pointed at an in-memory database. Tests can override defaults via the
  * `parameters` argument (forwarded to IgnitorFactory.merge).
+ *
+ * Callers are responsible for calling `await app.terminate()` in their
+ * teardown hook. Omitting this will cause the test suite to hang under
+ * `forceExit: false`.
  */
 export async function setupApp(parameters: Parameters<IgnitorFactory['merge']>[0] = {}) {
   const factory = new IgnitorFactory()

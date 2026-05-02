@@ -19,7 +19,11 @@ export function defineConfig<T extends LabelerProviderConfig>({
   }
 
   // Validate the store implements LabelStore
-  const store = config.store as any
+  const store = config.store as unknown as {
+    appendLabels?: unknown
+    getLatestSeq?: unknown
+    listLabelEvents?: unknown
+  }
   if (
     !store ||
     typeof store.appendLabels !== 'function' ||
