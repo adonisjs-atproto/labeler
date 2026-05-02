@@ -54,19 +54,19 @@ export async function configure(command: Configure) {
     rcFile.addCommand(`${packageName}/commands`)
   })
 
-  // Add migrations:
+  // Add migrations and model when using Lucid
   if (useLucid) {
-    // await codemods.makeUsingStub(stubsRoot, 'migrations/labels.stub', {
-    //   entity: command.app.generators.createEntity('labels'),
-    //   migration: {
-    //     folder: 'database/migrations',
-    //     fileName: `${new Date().getTime()}_create_labels_table.ts`,
-    //   },
-    // })
-    // // Add models:
-    // await codemods.makeUsingStub(stubsRoot, 'models/labels.stub', {
-    //   entity: command.app.generators.createEntity('labels'),
-    // })
+    await codemods.makeUsingStub(stubsRoot, 'migrations/labels.stub', {
+      entity: command.app.generators.createEntity('labels'),
+      migration: {
+        folder: 'database/migrations',
+        fileName: `${new Date().getTime()}_create_labels_table.ts`,
+      },
+    })
+
+    await codemods.makeUsingStub(stubsRoot, 'models/label.stub', {
+      entity: command.app.generators.createEntity('label'),
+    })
   }
 
   // Register the middleware:
@@ -96,8 +96,6 @@ export async function configure(command: Configure) {
   if (!shouldInstallPackages) instructions.add('Install the packages listed below')
   if (useLucid) {
     instructions.add('Run the migrations: node ace migration:run')
-  } else {
-    instructions.add('Modify config/atproto_labeler.ts to have `stores` implementations')
   }
   instructions.render()
 
