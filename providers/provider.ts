@@ -53,6 +53,11 @@ export default class AtProtoProvider {
   }
 
   async ready() {
+    // Skip WebSocket handler installation outside the HTTP server context.
+    // ace commands, tests, and repl all run providers through ready() but
+    // never start a server — without this gate we'd log a misleading error.
+    if (this.app.getEnvironment() !== 'web') return
+
     const appServer = await this.app.container.make('server')
     const logger = await this.app.container.make('logger')
     const labeler = await this.app.container.make('atproto.labeler.service')
