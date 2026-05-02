@@ -39,7 +39,7 @@ export default class AtProtoProvider {
   async boot() {
     const config = await this.app.container.make('atproto.labeler.config')
 
-    this.app.container.singleton('atproto.labeler.service', async () => {
+    this.app.container.singleton(Labeler, async () => {
       const { privateKeyBytes } = parsePrivateMultikey(config.signingKey.release())
 
       const labeler = new Labeler({
@@ -50,6 +50,8 @@ export default class AtProtoProvider {
 
       return labeler
     })
+
+    this.app.container.alias('atproto.labeler.service', Labeler)
   }
 
   async ready() {
@@ -60,7 +62,7 @@ export default class AtProtoProvider {
 
     const appServer = await this.app.container.make('server')
     const logger = await this.app.container.make('logger')
-    const labeler = await this.app.container.make('atproto.labeler.service')
+    const labeler = await this.app.container.make(Labeler)
 
     const server = appServer.getNodeServer()
     if (!server) {

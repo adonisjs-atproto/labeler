@@ -20,7 +20,7 @@ export const IMPORTER = (filePath: string) => {
  */
 function defaultLabelerConfig() {
   return {
-    serviceDid: 'did:plc:test',
+    serviceDid: 'did:web:labeler.test',
     signingKey: new Secret('z42tngCsBgNjWWuyiXq5FgX8dviRTBSf9DqiA7fuWj3M9KRu'),
     store: new MemoryLabelStore(),
   }
