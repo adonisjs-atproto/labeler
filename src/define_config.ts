@@ -18,6 +18,20 @@ export function defineConfig<T extends LabelerProviderConfig>({
     )
   }
 
+  // Validate the store implements LabelStore
+  const store = config.store as any
+  if (
+    !store ||
+    typeof store.appendLabels !== 'function' ||
+    typeof store.getLatestSeq !== 'function' ||
+    typeof store.listLabelEvents !== 'function'
+  ) {
+    throw new InvalidArgumentsException(
+      'The "store" property must implement the LabelStore interface ' +
+        '(appendLabels, getLatestSeq, listLabelEvents)'
+    )
+  }
+
   return {
     ...config,
     serviceDid: serviceDid,
