@@ -4,7 +4,7 @@ import type {} from '@atcute/atproto'
 import { RuntimeException } from '@adonisjs/core/exceptions'
 import { ComAtprotoLabelSubscribeLabels } from '@atcute/atproto'
 import { P256PrivateKey, parsePrivateMultikey } from '@atcute/crypto'
-import { FutureCursorError, Labeler, MemoryLabelStore } from '@atcute/labeler'
+import { FutureCursorError, Labeler } from '@atcute/labeler'
 import { XRPCRouter, XRPCSubscriptionError } from '@atcute/xrpc-server'
 import { createNodeWebSocket } from '@atcute/xrpc-server-node'
 
@@ -45,7 +45,7 @@ export default class AtProtoProvider {
       const labeler = new Labeler({
         serviceDid: config.serviceDid,
         signingKey: await P256PrivateKey.importRaw(privateKeyBytes),
-        store: new MemoryLabelStore(),
+        store: config.store,
       })
 
       return labeler

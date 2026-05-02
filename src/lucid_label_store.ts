@@ -119,8 +119,8 @@ function hydrateSignedLabel(row: InstanceType<LabelModel>): SignedLabel {
   // `neg: false` or `cid: null` here would produce different CBOR bytes
   // and the sig would not verify on a downstream subscriber.
   return {
-    src: row.src,
-    uri: row.uri,
+    src: row.src as `did:${string}:${string}`,
+    uri: row.uri as `${string}:${string}`,
     val: row.val,
     cts: row.cts,
     sig: toBytes(row.sig),
