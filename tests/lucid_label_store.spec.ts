@@ -24,3 +24,31 @@ test.group('LabelStoreError', () => {
     assert.equal(err.message, 'specific message')
   })
 })
+
+import { LucidLabelStore } from '../src/lucid_label_store.js'
+
+test.group('LucidLabelStore lazy model resolution', () => {
+  test('does not invoke loader at construction time', ({ assert }) => {
+    let loaderCalls = 0
+    new LucidLabelStore(async () => {
+      loaderCalls++
+      return { default: {} as any }
+    })
+    assert.equal(loaderCalls, 0)
+  })
+
+  test('caches resolved model in production (no import.meta.hot)', async ({ assert }) => {
+    let loaderCalls = 0
+    const fakeModel = { fake: true } as any
+    const store = new LucidLabelStore(async () => {
+      loaderCalls++
+      return { default: fakeModel }
+    })
+
+    // Internal probe — see Step 3 for the getModelForTest method
+    const probe = store as any
+    await probe.getModelForTest()
+    await probe.getModelForTest()
+    assert.equal(loaderCalls, 1)
+  })
+})
