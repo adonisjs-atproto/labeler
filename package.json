@@ -81,10 +81,13 @@
     "@changesets/changelog-github": "^0.6.0",
     "@changesets/cli": "^2.30.0",
     "@japa/assert": "^4.2.0",
+    "@japa/file-system": "^3.0.0",
     "@japa/runner": "^5.3.0",
     "@poppinss/ts-exec": "^1.4.4",
+    "@types/better-sqlite3": "^7.6.13",
     "@types/luxon": "^3.7.1",
     "@types/node": "^25.3.5",
+    "better-sqlite3": "^12.9.0",
     "c8": "^11.0.0",
     "copyfiles": "^2.4.1",
     "eslint": "^10.0.3",
@@ -149,5 +152,8 @@
       "tests/**"
     ]
   },
-  "prettier": "@adonisjs/prettier-config"
+  "prettier": "@adonisjs/prettier-config",
+  "pnpm": {
+    "onlyBuiltDependencies": ["better-sqlite3"]
+  }
 }
