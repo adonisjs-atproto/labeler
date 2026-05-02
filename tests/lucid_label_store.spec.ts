@@ -224,3 +224,131 @@ test.group('LucidLabelStore.getLatestSeq', (group) => {
     assert.equal(result, 3)
   })
 })
+
+test.group('LucidLabelStore.listLabelEvents', (group) => {
+  let store: LucidLabelStore
+  let cleanup: () => Promise<void>
+
+  group.each.setup(async () => {
+    const { testUtils, app } = await setupApp()
+    await createLabelsTable(testUtils)
+    store = new LucidLabelStore(async () => ({ default: TestLabel as any }))
+    cleanup = async () => {
+      await app.terminate()
+    }
+    return cleanup
+  })
+
+  test('empty store returns []', async ({ assert }) => {
+    const events = await store.listLabelEvents({})
+    assert.deepEqual(events, [])
+  })
+
+  test('bundles up to default limit (500) into one event', async ({ assert }) => {
+    await store.appendLabels(
+      Array.from({ length: 5 }, (_, i) => makeFakeSignedLabel({ val: `label-${i}` }))
+    )
+    const events = await store.listLabelEvents({})
+    assert.lengthOf(events, 1)
+    assert.equal(events[0].seq, 5)
+    assert.lengthOf(events[0].labels, 5)
+  })
+
+  test('honors caller-passed limit', async ({ assert }) => {
+    await store.appendLabels(
+      Array.from({ length: 10 }, (_, i) => makeFakeSignedLabel({ val: `l${i}` }))
+    )
+    const events = await store.listLabelEvents({ limit: 3 })
+    assert.lengthOf(events, 1)
+    assert.equal(events[0].seq, 3)
+    assert.lengthOf(events[0].labels, 3)
+  })
+
+  test('after cursor returns rows with seq > cursor', async ({ assert }) => {
+    await store.appendLabels(
+      Array.from({ length: 5 }, (_, i) => makeFakeSignedLabel({ val: `l${i}` }))
+    )
+    const events = await store.listLabelEvents({ after: 2 })
+    assert.lengthOf(events, 1)
+    assert.equal(events[0].seq, 5)
+    assert.lengthOf(events[0].labels, 3) // seqs 3, 4, 5
+  })
+
+  test('returns events ordered by seq ASC', async ({ assert }) => {
+    await store.appendLabels(
+      Array.from({ length: 3 }, (_, i) => makeFakeSignedLabel({ val: `l${i}` }))
+    )
+    const events = await store.listLabelEvents({})
+    assert.equal(events[0].labels[0].val, 'l0')
+    assert.equal(events[0].labels[1].val, 'l1')
+    assert.equal(events[0].labels[2].val, 'l2')
+  })
+})
+
+test.group('LucidLabelStore round-trip fidelity', (group) => {
+  let store: LucidLabelStore
+  let cleanup: () => Promise<void>
+
+  group.each.setup(async () => {
+    const { testUtils, app } = await setupApp()
+    await createLabelsTable(testUtils)
+    store = new LucidLabelStore(async () => ({ default: TestLabel as any }))
+    cleanup = async () => {
+      await app.terminate()
+    }
+    return cleanup
+  })
+
+  test('preserves all-fields-set label across round-trip', async ({ assert }) => {
+    const label = {
+      src: 'did:plc:labeler',
+      uri: 'at://did:plc:abc/post/1',
+      cid: 'bafyreihm4o7zqgnvgkrfjqj5fhf3d4tqp2cdxbcfyqf6lthkpyu54s4vku',
+      val: 'spam',
+      neg: true,
+      cts: '2026-05-01T12:34:56.789Z',
+      exp: '2027-01-01T00:00:00.000Z',
+      sig: toBytes(new Uint8Array([10, 20, 30])),
+      ver: 1,
+    } as any
+
+    await store.appendLabels([label])
+    const events = await store.listLabelEvents({})
+    const got = events[0].labels[0]
+
+    assert.equal(got.src, 'did:plc:labeler')
+    assert.equal(got.uri, 'at://did:plc:abc/post/1')
+    assert.equal(got.cid, 'bafyreihm4o7zqgnvgkrfjqj5fhf3d4tqp2cdxbcfyqf6lthkpyu54s4vku')
+    assert.equal(got.val, 'spam')
+    assert.equal(got.neg, true)
+    assert.equal(got.cts, '2026-05-01T12:34:56.789Z')
+    assert.equal(got.exp, '2027-01-01T00:00:00.000Z')
+    assert.equal(got.ver, 1)
+    assert.deepEqual(Array.from((got.sig as any).buf), [10, 20, 30])
+  })
+
+  test('omits absent optional fields in returned SignedLabel (critical for sig verify)', async ({
+    assert,
+  }) => {
+    const minimalLabel = {
+      src: 'did:plc:labeler',
+      uri: 'at://x',
+      val: 'spam',
+      cts: '2026-05-01T00:00:00.000Z',
+      sig: toBytes(new Uint8Array([1])),
+      // No cid, neg, exp, or ver
+    } as any
+
+    await store.appendLabels([minimalLabel])
+    const events = await store.listLabelEvents({})
+    const got = events[0].labels[0]
+
+    // Each absent field must NOT be a key on the returned object.
+    // (Including cid:null or neg:false would change the CBOR encoding
+    // and break sig verification on a downstream subscriber.)
+    assert.notProperty(got, 'cid')
+    assert.notProperty(got, 'neg')
+    assert.notProperty(got, 'exp')
+    assert.notProperty(got, 'ver')
+  })
+})

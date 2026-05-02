@@ -1,4 +1,4 @@
-import { fromBytes } from '@atcute/cbor'
+import { fromBytes, toBytes } from '@atcute/cbor'
 import type { LabelEvent, LabelStore, SignedLabel } from '@atcute/labeler'
 import type { LabelModel } from './types.js'
 
@@ -80,7 +80,53 @@ export class LucidLabelStore implements LabelStore {
       throw new LabelStoreError('failed to get latest seq', { cause: err })
     }
   }
-  async listLabelEvents(): Promise<never> {
-    throw new Error('not implemented')
+  async listLabelEvents(options: { after?: number; limit?: number }): Promise<LabelEvent[]> {
+    const { after, limit = 500 } = options // matches @atcute/labeler outbox default
+    const Label = await this.#getModel()
+
+    try {
+      const rows = await Label.query()
+        .orderBy('seq', 'asc')
+        .if(after !== undefined, (q) => q.where('seq', '>', after!))
+        .limit(limit)
+
+      if (rows.length === 0) return []
+
+      // Bundle up to `limit` rows into a single event with seq = highest row seq.
+      // This is the intentional live/replay shape difference: live emits one
+      // event per label (matching skyware/MemoryLabelStore), but replay bundles
+      // for backfill efficiency. Subscribers iterate labels[] regardless;
+      // total label data delivered is identical.
+      return [
+        {
+          seq: rows[rows.length - 1].seq,
+          labels: rows.map(hydrateSignedLabel),
+        },
+      ]
+    } catch (err) {
+      throw new LabelStoreError('failed to list label events', { cause: err })
+    }
+  }
+}
+
+export function lucidLabelStore(loader: LabelModelLoader): LucidLabelStore {
+  return new LucidLabelStore(loader)
+}
+
+function hydrateSignedLabel(row: InstanceType<LabelModel>): SignedLabel {
+  // Reconstruct optional-field shape for sig-verifiable round-trip.
+  // The original signed CBOR omitted optional fields when absent; including
+  // `neg: false` or `cid: null` here would produce different CBOR bytes
+  // and the sig would not verify on a downstream subscriber.
+  return {
+    src: row.src,
+    uri: row.uri,
+    val: row.val,
+    cts: row.cts,
+    sig: toBytes(row.sig),
+    ...(row.cid !== null && { cid: row.cid }),
+    ...(row.neg && { neg: true }),
+    ...(row.exp !== null && { exp: row.exp }),
+    ...(row.ver !== null && { ver: row.ver }),
   }
 }
