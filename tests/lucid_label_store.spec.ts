@@ -1,5 +1,5 @@
 import { test } from '@japa/runner'
-import { LabelStoreError, LucidLabelStore } from '../src/lucid_label_store.js'
+import { LabelStoreError, LucidLabelStore, lucidLabelStore } from '../src/lucid_label_store.js'
 import { setupApp, createLabelsTable, TestLabel } from './helpers.js'
 import { toBytes } from '@atcute/cbor'
 import { afterCreate } from '@adonisjs/lucid/orm'
@@ -350,5 +350,19 @@ test.group('LucidLabelStore round-trip fidelity', (group) => {
     assert.notProperty(got, 'neg')
     assert.notProperty(got, 'exp')
     assert.notProperty(got, 'ver')
+  })
+})
+
+test.group('lucidLabelStore factory', () => {
+  test('returns a LabelStore-shaped object', ({ assert }) => {
+    const store = lucidLabelStore(async () => ({ default: TestLabel as any }))
+    assert.isFunction(store.appendLabels)
+    assert.isFunction(store.getLatestSeq)
+    assert.isFunction(store.listLabelEvents)
+  })
+
+  test('returns a LucidLabelStore instance', ({ assert }) => {
+    const store = lucidLabelStore(async () => ({ default: TestLabel as any }))
+    assert.instanceOf(store, LucidLabelStore)
   })
 })
