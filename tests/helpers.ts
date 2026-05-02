@@ -1,5 +1,7 @@
 import { IgnitorFactory } from '@adonisjs/core/factories/core/ignitor'
 import { TestUtilsFactory } from '@adonisjs/core/factories/core/test_utils'
+import { Secret } from '@adonisjs/core/helpers'
+import { MemoryLabelStore } from '@atcute/labeler'
 
 export const BASE_URL = new URL('../tmp/', import.meta.url)
 export const IMPORTER = (filePath: string) => {
@@ -10,23 +12,50 @@ export const IMPORTER = (filePath: string) => {
 }
 
 /**
+ * Default test config for the labeler provider. The signing key is a
+ * placeholder — the service factory parses it via parsePrivateMultikey,
+ * but only when `atproto.labeler.service` is materialized. In non-web
+ * test environments the env-gate in provider.ready() prevents that
+ * materialization, so the placeholder never reaches the parser.
+ */
+function defaultLabelerConfig() {
+  return {
+    serviceDid: 'did:plc:test',
+    signingKey: new Secret('z42tngCsBgNjWWuyiXq5FgX8dviRTBSf9DqiA7fuWj3M9KRu'),
+    store: new MemoryLabelStore(),
+  }
+}
+
+/**
  * Setup an AdonisJS app for testing the labeler package.
  *
  * Returns an isolated app instance with @adonisjs/lucid + better-sqlite3
- * pointed at an in-memory database. Tests can override defaults via the
- * `parameters` argument (forwarded to IgnitorFactory.merge).
+ * pointed at an in-memory database, AND with the labeler provider
+ * registered (so consumers exercise the real provider lifecycle).
+ *
+ * Tests can override defaults via the `parameters` argument (forwarded
+ * to IgnitorFactory.merge). Tests that need to swap container bindings
+ * before `provider.ready()` runs can pass a `beforeReady` hook in the
+ * second argument — it fires between `app.boot()` (provider register +
+ * boot complete) and `testUtils.boot()` (provider ready about to fire).
  *
  * Callers are responsible for calling `await app.terminate()` in their
  * teardown hook. Omitting this will cause the test suite to hang under
  * `forceExit: false`.
  */
-export async function setupApp(parameters: Parameters<IgnitorFactory['merge']>[0] = {}) {
+export async function setupApp(
+  parameters: Parameters<IgnitorFactory['merge']>[0] = {},
+  hooks: { beforeReady?: (app: any) => void | Promise<void> } = {}
+) {
   const factory = new IgnitorFactory()
     .withCoreProviders()
     .withCoreConfig()
     .merge({
       rcFileContents: {
-        providers: [() => import('@adonisjs/lucid/database_provider')],
+        providers: [
+          () => import('@adonisjs/lucid/database_provider'),
+          () => import('../providers/provider.js'),
+        ],
       },
       config: {
         database: {
@@ -39,6 +68,7 @@ export async function setupApp(parameters: Parameters<IgnitorFactory['merge']>[0
             },
           },
         },
+        atproto_labeler: defaultLabelerConfig(),
       },
     })
     .merge(parameters)
@@ -48,6 +78,7 @@ export async function setupApp(parameters: Parameters<IgnitorFactory['merge']>[0
 
   await testUtils.app.init()
   await testUtils.app.boot()
+  if (hooks.beforeReady) await hooks.beforeReady(testUtils.app)
   await testUtils.boot()
 
   return { testUtils, app: testUtils.app }
