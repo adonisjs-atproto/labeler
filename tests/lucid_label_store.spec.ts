@@ -2,6 +2,7 @@ import { test } from '@japa/runner'
 import { LabelStoreError, LucidLabelStore } from '../src/lucid_label_store.js'
 import { setupApp, createLabelsTable, TestLabel } from './helpers.js'
 import { toBytes } from '@atcute/cbor'
+import { afterCreate } from '@adonisjs/lucid/orm'
 
 test.group('LabelStoreError', () => {
   test('has name "LabelStoreError"', ({ assert }) => {
@@ -119,3 +120,68 @@ function makeFakeSignedLabel(overrides: Partial<{ uri: string; val: string; src:
     ver: 1,
   } as any
 }
+
+test.group('LucidLabelStore.appendLabels rollback', (group) => {
+  let store: LucidLabelStore
+  let cleanup: () => Promise<void>
+
+  group.each.setup(async () => {
+    const { testUtils, app } = await setupApp()
+    await createLabelsTable(testUtils)
+
+    // Attach a hook that throws, simulating a consumer's audit hook failure.
+    // Must re-declare the table name — Lucid derives it from the class name,
+    // so subclasses do not inherit `static table` from the parent.
+    class ThrowingLabel extends TestLabel {
+      static override table = 'labels'
+
+      @afterCreate()
+      static throwAlways() {
+        throw new Error('audit hook failed')
+      }
+    }
+    store = new LucidLabelStore(async () => ({ default: ThrowingLabel as any }))
+    cleanup = async () => {
+      await app.terminate()
+    }
+    return cleanup
+  })
+
+  test('throws LabelStoreError when audit hook fails', async ({ assert }) => {
+    const label = {
+      src: 'did:plc:labeler',
+      uri: 'at://x',
+      val: 't',
+      cts: '2026-05-01T00:00:00.000Z',
+      sig: toBytes(new Uint8Array([1])),
+      ver: 1,
+    } as any
+
+    await assert.rejects(() => store.appendLabels([label]), 'failed to append labels')
+
+    try {
+      await store.appendLabels([label])
+    } catch (err: any) {
+      assert.instanceOf(err, LabelStoreError)
+      assert.equal(err.name, 'LabelStoreError')
+      assert.exists(err.cause)
+      assert.equal((err.cause as Error).message, 'audit hook failed')
+    }
+  })
+
+  test('rolls back the row when audit hook fails', async ({ assert }) => {
+    const label = {
+      src: 'did:plc:labeler',
+      uri: 'at://x',
+      val: 't',
+      cts: '2026-05-01T00:00:00.000Z',
+      sig: toBytes(new Uint8Array([1])),
+      ver: 1,
+    } as any
+
+    await assert.rejects(() => store.appendLabels([label]))
+
+    const rows = await TestLabel.all()
+    assert.lengthOf(rows, 0)
+  })
+})
