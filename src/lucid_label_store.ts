@@ -71,8 +71,14 @@ export class LucidLabelStore implements LabelStore {
     }))
   }
 
-  async getLatestSeq(): Promise<never> {
-    throw new Error('not implemented')
+  async getLatestSeq(): Promise<number | null> {
+    const Label = await this.#getModel()
+    try {
+      const row = await Label.query().select('seq').orderBy('seq', 'desc').first()
+      return row?.seq ?? null
+    } catch (err) {
+      throw new LabelStoreError('failed to get latest seq', { cause: err })
+    }
   }
   async listLabelEvents(): Promise<never> {
     throw new Error('not implemented')

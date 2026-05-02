@@ -76,7 +76,10 @@ test.group('LucidLabelStore.appendLabels', (group) => {
 
   test('single label inserts one row and returns event with seq=1', async ({ assert }) => {
     const store = storeBuilder()
-    const label = makeFakeSignedLabel({ uri: 'at://did:plc:abc/app.bsky.feed.post/xyz', val: 'spam' })
+    const label = makeFakeSignedLabel({
+      uri: 'at://did:plc:abc/app.bsky.feed.post/xyz',
+      val: 'spam',
+    })
     const events = await store.appendLabels([label])
 
     assert.lengthOf(events, 1)
@@ -89,7 +92,9 @@ test.group('LucidLabelStore.appendLabels', (group) => {
     assert.equal(rows[0].val, 'spam')
   })
 
-  test('batch of N inserts N rows and returns N events with sequential seqs', async ({ assert }) => {
+  test('batch of N inserts N rows and returns N events with sequential seqs', async ({
+    assert,
+  }) => {
     const store = storeBuilder()
     const labels = [
       makeFakeSignedLabel({ val: 'a' }),
@@ -99,7 +104,10 @@ test.group('LucidLabelStore.appendLabels', (group) => {
     const events = await store.appendLabels(labels)
 
     assert.lengthOf(events, 3)
-    assert.deepEqual(events.map((e) => e.seq), [1, 2, 3])
+    assert.deepEqual(
+      events.map((e) => e.seq),
+      [1, 2, 3]
+    )
     assert.equal(events[0].labels[0].val, 'a')
     assert.equal(events[1].labels[0].val, 'b')
     assert.equal(events[2].labels[0].val, 'c')
@@ -184,5 +192,35 @@ test.group('LucidLabelStore.appendLabels rollback', (group) => {
 
     const rows = await TestLabel.all()
     assert.lengthOf(rows, 0)
+  })
+})
+
+test.group('LucidLabelStore.getLatestSeq', (group) => {
+  let store: LucidLabelStore
+  let cleanup: () => Promise<void>
+
+  group.each.setup(async () => {
+    const { testUtils, app } = await setupApp()
+    await createLabelsTable(testUtils)
+    store = new LucidLabelStore(async () => ({ default: TestLabel as any }))
+    cleanup = async () => {
+      await app.terminate()
+    }
+    return cleanup
+  })
+
+  test('returns null when store is empty', async ({ assert }) => {
+    const result = await store.getLatestSeq()
+    assert.isNull(result)
+  })
+
+  test('returns max seq after inserts', async ({ assert }) => {
+    await store.appendLabels([
+      makeFakeSignedLabel({ val: 'a' }),
+      makeFakeSignedLabel({ val: 'b' }),
+      makeFakeSignedLabel({ val: 'c' }),
+    ])
+    const result = await store.getLatestSeq()
+    assert.equal(result, 3)
   })
 })
