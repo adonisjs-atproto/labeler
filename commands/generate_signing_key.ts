@@ -40,7 +40,7 @@ export default class GenerateSigningKey extends BaseCommand {
 
     if (writeToFile) {
       const editor = await EnvEditor.create(this.app.appRoot)
-      editor.add('ATPROTO_LABELER_SIGNING_KEY', signingKey, true)
+      editor.add('ATPROTO_LABELER_SIGNING_KEY', JSON.stringify(signingKey), true)
       await editor.save()
       this.logger.action('add ATPROTO_LABELER_SIGNING_KEY to .env').succeeded()
     } else {
