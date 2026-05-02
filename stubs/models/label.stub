@@ -1,0 +1,22 @@
+{{#var modelName = generators.modelName(entity.name)}}
+{{#var modelFileName = generators.modelFileName(entity.name)}}
+{{{
+  exports({
+    to: app.modelsPath(entity.path, modelFileName)
+  })
+}}}
+import { LabelSchema } from '#database/schema'
+import { computed } from '@adonisjs/lucid/orm'
+import { DateTime } from 'luxon'
+
+export default class {{ modelName }} extends LabelSchema {
+  @computed()
+  get createdAt(): DateTime {
+    return DateTime.fromISO(this.cts)
+  }
+
+  @computed()
+  get expiresAt(): DateTime | null {
+    return this.exp ? DateTime.fromISO(this.exp) : null
+  }
+}
