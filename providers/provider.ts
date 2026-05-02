@@ -62,7 +62,7 @@ export default class AtProtoProvider {
 
     const appServer = await this.app.container.make('server')
     const logger = await this.app.container.make('logger')
-    const labeler = await this.app.container.make(Labeler)
+    const labeler = await this.app.container.make('atproto.labeler.service')
 
     const server = appServer.getNodeServer()
     if (!server) {
