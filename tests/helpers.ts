@@ -48,3 +48,66 @@ export async function setupApp(parameters: Parameters<IgnitorFactory['merge']>[0
 
   return { testUtils, app: testUtils.app }
 }
+
+import { BaseModel, column } from '@adonisjs/lucid/orm'
+
+/**
+ * Test-only Lucid model that matches the labels schema we ship in the
+ * package's migration stub. Used by store tests; consumers will generate
+ * their own model via `node ace configure`.
+ */
+export class TestLabel extends BaseModel {
+  static table = 'labels'
+  static primaryKey = 'seq'
+
+  @column({ isPrimary: true })
+  declare seq: number
+
+  @column()
+  declare src: string
+
+  @column()
+  declare uri: string
+
+  @column()
+  declare cid: string | null
+
+  @column()
+  declare val: string
+
+  @column()
+  declare neg: boolean
+
+  @column()
+  declare cts: string
+
+  @column()
+  declare exp: string | null
+
+  @column()
+  declare sig: Uint8Array
+
+  @column()
+  declare ver: number | null
+}
+
+/**
+ * Create the labels table in the in-memory test DB. Mirrors the package's
+ * migration stub but executed inline so each test gets a fresh schema.
+ */
+export async function createLabelsTable(testUtils: any) {
+  const db = await testUtils.app.container.make('lucid.db')
+  await db.connection().schema.createTable('labels', (table: any) => {
+    table.increments('seq')
+    table.text('src').notNullable()
+    table.text('uri').notNullable()
+    table.text('cid').nullable()
+    table.string('val', 128).notNullable()
+    table.boolean('neg').notNullable().defaultTo(false)
+    table.text('cts').notNullable()
+    table.text('exp').nullable()
+    table.binary('sig').notNullable()
+    table.integer('ver').nullable()
+    table.index(['uri', 'val'], 'labels_uri_val_index')
+  })
+}
