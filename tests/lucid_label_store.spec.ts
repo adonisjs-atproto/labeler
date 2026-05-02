@@ -161,6 +161,7 @@ test.group('LucidLabelStore.appendLabels rollback', (group) => {
 
     try {
       await store.appendLabels([label])
+      assert.fail('appendLabels should have thrown')
     } catch (err: any) {
       assert.instanceOf(err, LabelStoreError)
       assert.equal(err.name, 'LabelStoreError')

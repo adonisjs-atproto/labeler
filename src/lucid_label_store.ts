@@ -19,6 +19,11 @@ export class LucidLabelStore implements LabelStore {
     this.#loader = loader
   }
 
+  /**
+   * Lazy model resolution mirroring the OAuthStore pattern. In dev (when
+   * import.meta.hot is set), always re-resolve so hot-edited model classes
+   * don't get pinned to a stale reference. In prod, the cached path is used.
+   */
   async #getModel(): Promise<LabelModel> {
     if (this.#model && !('hot' in import.meta)) return this.#model
     const mod = await this.#loader()
