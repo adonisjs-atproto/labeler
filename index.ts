@@ -19,6 +19,7 @@ export {
   LabelerError,
   FutureCursorError,
   ConsumerTooSlowError,
+  Labeler,
 } from '@atcute/labeler'
 export type { LabelStore, LabelEvent, LabelOp, SignedLabel } from '@atcute/labeler'
 
