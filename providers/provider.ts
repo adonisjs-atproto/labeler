@@ -62,39 +62,50 @@ export default class AtProtoProvider {
 
     const appServer = await this.app.container.make('server')
     const logger = await this.app.container.make('logger')
-    const labeler = await this.app.container.make('atproto.labeler.service')
 
-    const server = appServer.getNodeServer()
-    if (!server) {
-      logger.error('Failed to acquire server to install labeler websocket handler on.')
-      return
-    }
+    try {
+      const labeler = await this.app.container.make('atproto.labeler.service')
 
-    const ws = createNodeWebSocket()
-    const router = new XRPCRouter({ websocket: ws.adapter })
+      const server = appServer.getNodeServer()
+      if (!server) {
+        logger.error('Failed to acquire server to install labeler websocket handler on.')
+        return
+      }
 
-    router.addSubscription(ComAtprotoLabelSubscribeLabels, {
-      async *handler({ params, signal }) {
-        try {
-          for await (const event of labeler.subscribeLabels({
-            cursor: params.cursor,
-            signal: signal,
-          })) {
-            yield {
-              $type: 'com.atproto.label.subscribeLabels#labels',
-              ...event,
+      const ws = createNodeWebSocket()
+      const router = new XRPCRouter({ websocket: ws.adapter })
+
+      router.addSubscription(ComAtprotoLabelSubscribeLabels, {
+        async *handler({ params, signal }) {
+          try {
+            for await (const event of labeler.subscribeLabels({
+              cursor: params.cursor,
+              signal: signal,
+            })) {
+              logger.debug(event, 'label')
+              yield {
+                $type: 'com.atproto.label.subscribeLabels#labels',
+                ...event,
+              }
             }
+          } catch (err) {
+            if (err instanceof FutureCursorError) {
+              throw new XRPCSubscriptionError({ error: 'FutureCursor' })
+            }
+            throw err
           }
-        } catch (err) {
-          if (err instanceof FutureCursorError) {
-            throw new XRPCSubscriptionError({ error: 'FutureCursor' })
-          }
-          throw err
-        }
-      },
-    })
+        },
+      })
 
-    ws.injectWebSocket(server, router)
+      ws.injectWebSocket(server, router)
+      logger.trace('Labeler WebSocket handler installed at /xrpc/com.atproto.label.subscribeLabels')
+    } catch (err) {
+      // Surface anything that goes wrong during ready() — without this,
+      // exceptions from container.make / injectWebSocket get swallowed
+      // by the AdonisJS lifecycle and the only symptom is a 404 on the
+      // subscription endpoint.
+      logger.error({ err }, 'Failed to install labeler WebSocket handler')
+    }
   }
 
   async shutdown() {}

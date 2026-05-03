@@ -59,11 +59,31 @@ export default class LabelerDebug extends BaseCommand {
     })
 
     ws.addEventListener('error', (ev) => {
-      this.logger.error(`Websocket Error: ${ev.error.name}: ${ev.error.message}`)
+      // Many Node networking errors (ECONNREFUSED, DNS failures) have an
+      // empty .message and the useful diagnostics live in .code / .stack.
+      // logger.fatal accepts { message, stack? } and renders the stack —
+      // that's the only cliui surface that does so.
+      const err = ev.error
+      const ctx = `readyState=${ws.readyState}, url=${subscription}`
+      if (err instanceof Error) {
+        const code = (err as Error & { code?: string }).code
+        const codeBit = code ? ` [${code}]` : ''
+        this.logger.fatal({
+          message: `Websocket Error (${ctx}): ${err.name}${codeBit}: ${err.message || '(empty message)'}`,
+          stack: err.stack,
+        })
+      } else {
+        this.logger.error(
+          `Websocket Error (${ctx}): ${String(err) || '(no error attached to event)'}`
+        )
+      }
     })
 
-    ws.addEventListener('close', () => {
-      this.logger.info('Subscription closed by server')
+    ws.addEventListener('close', (ev) => {
+      // RFC 6455 close codes: 1000 normal, 1006 abnormal, 1011 server
+      // error, etc. Reason is whatever the server sent (often empty).
+      const reason = ev.reason ? `, reason="${ev.reason}"` : ''
+      this.logger.info(`Subscription closed (code=${ev.code}${reason}, wasClean=${ev.wasClean})`)
     })
 
     ws.addEventListener('message', async (event) => {
