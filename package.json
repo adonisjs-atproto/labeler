@@ -19,8 +19,7 @@
     "./provider": "./build/providers/provider.js",
     "./service": "./build/services/labeler.js",
     "./store": "./build/src/lucid_label_store.js",
-    "./types": "./build/src/types.js",
-    "./atproto_labeler_middleware": "./build/src/middleware.js"
+    "./types": "./build/src/types.js"
   },
   "scripts": {
     "changeset": "changeset",
@@ -124,7 +123,6 @@
       "./commands/labeler_debug.ts",
       "./providers/provider.ts",
       "./services/labeler.ts",
-      "./src/middleware.ts",
       "./src/types.ts",
       "./src/lucid_label_store.ts"
     ],

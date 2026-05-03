@@ -76,9 +76,6 @@ export const { middleware } = router.named({
     await assert.fileContains('adonisrc.ts', `${PACKAGE_NAME}/provider`)
     await assert.fileContains('adonisrc.ts', `${PACKAGE_NAME}/commands`)
 
-    // Router middleware appended
-    await assert.fileContains('start/kernel.ts', `${PACKAGE_NAME}/atproto_labeler_middleware`)
-
     // Env vars + validations wired up
     await assert.fileContains('.env', 'ATPROTO_LABELER_DID')
     await assert.fileContains('.env', 'ATPROTO_LABELER_SIGNING_KEY')
@@ -134,10 +131,9 @@ export const { middleware } = router.named({
     await assert.fileContains('config/atproto_labeler.ts', 'defineConfig({')
     await assert.fileContains('config/atproto_labeler.ts', 'MemoryLabelStore')
 
-    // Provider, middleware and env wiring happen regardless of store choice
+    // Provider and env wiring happen regardless of store choice
     await assert.fileContains('adonisrc.ts', `${PACKAGE_NAME}/provider`)
     await assert.fileContains('adonisrc.ts', `${PACKAGE_NAME}/commands`)
-    await assert.fileContains('start/kernel.ts', `${PACKAGE_NAME}/atproto_labeler_middleware`)
     await assert.fileContains('.env', 'ATPROTO_LABELER_DID')
     await assert.fileContains('.env', 'ATPROTO_LABELER_SIGNING_KEY')
 

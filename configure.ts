@@ -50,13 +50,6 @@ export async function configure(command: Configure) {
     })
   }
 
-  // Register the middleware:
-  await codemods.registerMiddleware('router', [
-    {
-      path: `${packageName}/atproto_labeler_middleware`,
-    },
-  ])
-
   await codemods.defineEnvVariables({
     ATPROTO_LABELER_DID: 'did:plc:123',
     ATPROTO_LABELER_SIGNING_KEY: 'abc',
