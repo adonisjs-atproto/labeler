@@ -54,16 +54,12 @@ test.group('LucidLabelStore lazy model resolution', () => {
 
 test.group('LucidLabelStore.appendLabels', (group) => {
   let storeBuilder: () => LucidLabelStore
-  let cleanup: () => Promise<void>
 
   group.each.setup(async () => {
-    const { testUtils, app } = await setupApp()
+    const { testUtils, terminate } = await setupApp()
     await createLabelsTable(testUtils)
     storeBuilder = () => new LucidLabelStore(async () => ({ default: TestLabel as any }))
-    cleanup = async () => {
-      await app.terminate()
-    }
-    return cleanup
+    return terminate
   })
 
   test('empty array returns [] without DB I/O', async ({ assert }) => {
@@ -129,10 +125,9 @@ function makeFakeSignedLabel(overrides: Partial<{ uri: string; val: string; src:
 
 test.group('LucidLabelStore.appendLabels rollback', (group) => {
   let store: LucidLabelStore
-  let cleanup: () => Promise<void>
 
   group.each.setup(async () => {
-    const { testUtils, app } = await setupApp()
+    const { testUtils, terminate } = await setupApp()
     await createLabelsTable(testUtils)
 
     // Attach a hook that throws, simulating a consumer's audit hook failure.
@@ -147,10 +142,7 @@ test.group('LucidLabelStore.appendLabels rollback', (group) => {
       }
     }
     store = new LucidLabelStore(async () => ({ default: ThrowingLabel as any }))
-    cleanup = async () => {
-      await app.terminate()
-    }
-    return cleanup
+    return terminate
   })
 
   test('throws LabelStoreError when audit hook fails', async ({ assert }) => {
@@ -195,16 +187,12 @@ test.group('LucidLabelStore.appendLabels rollback', (group) => {
 
 test.group('LucidLabelStore.getLatestSeq', (group) => {
   let store: LucidLabelStore
-  let cleanup: () => Promise<void>
 
   group.each.setup(async () => {
-    const { testUtils, app } = await setupApp()
+    const { testUtils, terminate } = await setupApp()
     await createLabelsTable(testUtils)
     store = new LucidLabelStore(async () => ({ default: TestLabel as any }))
-    cleanup = async () => {
-      await app.terminate()
-    }
-    return cleanup
+    return terminate
   })
 
   test('returns null when store is empty', async ({ assert }) => {
@@ -225,16 +213,12 @@ test.group('LucidLabelStore.getLatestSeq', (group) => {
 
 test.group('LucidLabelStore.listLabelEvents', (group) => {
   let store: LucidLabelStore
-  let cleanup: () => Promise<void>
 
   group.each.setup(async () => {
-    const { testUtils, app } = await setupApp()
+    const { testUtils, terminate } = await setupApp()
     await createLabelsTable(testUtils)
     store = new LucidLabelStore(async () => ({ default: TestLabel as any }))
-    cleanup = async () => {
-      await app.terminate()
-    }
-    return cleanup
+    return terminate
   })
 
   test('empty store returns []', async ({ assert }) => {
@@ -285,16 +269,12 @@ test.group('LucidLabelStore.listLabelEvents', (group) => {
 
 test.group('LucidLabelStore round-trip fidelity', (group) => {
   let store: LucidLabelStore
-  let cleanup: () => Promise<void>
 
   group.each.setup(async () => {
-    const { testUtils, app } = await setupApp()
+    const { testUtils, terminate } = await setupApp()
     await createLabelsTable(testUtils)
     store = new LucidLabelStore(async () => ({ default: TestLabel as any }))
-    cleanup = async () => {
-      await app.terminate()
-    }
-    return cleanup
+    return terminate
   })
 
   test('preserves all-fields-set label across round-trip', async ({ assert }) => {
@@ -348,6 +328,43 @@ test.group('LucidLabelStore round-trip fidelity', (group) => {
     assert.notProperty(got, 'neg')
     assert.notProperty(got, 'exp')
     assert.notProperty(got, 'ver')
+  })
+})
+
+test.group('LucidLabelStore read-path error wrapping', (group) => {
+  // Skip createLabelsTable() so any query against TestLabel hits a real
+  // SQLite "no such table" error. This exercises the catch blocks in
+  // getLatestSeq / listLabelEvents that wrap raw DB errors into a typed
+  // LabelStoreError. Mirrors the pattern used by the appendLabels
+  // rollback group, just for the read methods.
+  let store: LucidLabelStore
+
+  group.each.setup(async () => {
+    const { terminate } = await setupApp()
+    store = new LucidLabelStore(async () => ({ default: TestLabel as any }))
+    return terminate
+  })
+
+  test('getLatestSeq wraps underlying DB errors in LabelStoreError', async ({ assert }) => {
+    try {
+      await store.getLatestSeq()
+      assert.fail('getLatestSeq should have thrown')
+    } catch (err: any) {
+      assert.instanceOf(err, LabelStoreError)
+      assert.equal(err.name, 'LabelStoreError')
+      assert.exists(err.cause)
+    }
+  })
+
+  test('listLabelEvents wraps underlying DB errors in LabelStoreError', async ({ assert }) => {
+    try {
+      await store.listLabelEvents({})
+      assert.fail('listLabelEvents should have thrown')
+    } catch (err: any) {
+      assert.instanceOf(err, LabelStoreError)
+      assert.equal(err.name, 'LabelStoreError')
+      assert.exists(err.cause)
+    }
   })
 })
 

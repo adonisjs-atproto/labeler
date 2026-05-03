@@ -2,6 +2,7 @@ import { IgnitorFactory } from '@adonisjs/core/factories/core/ignitor'
 import { TestUtilsFactory } from '@adonisjs/core/factories/core/test_utils'
 import { Secret } from '@adonisjs/core/helpers'
 import { MemoryLabelStore } from '@atcute/labeler'
+import { getActiveTest } from '@japa/runner'
 
 export const BASE_URL = new URL('../tmp/', import.meta.url)
 export const IMPORTER = (filePath: string) => {
@@ -39,9 +40,11 @@ function defaultLabelerConfig() {
  * second argument — it fires between `app.boot()` (provider register +
  * boot complete) and `testUtils.boot()` (provider ready about to fire).
  *
- * Callers are responsible for calling `await app.terminate()` in their
- * teardown hook. Omitting this will cause the test suite to hang under
- * `forceExit: false`.
+ * App teardown is registered automatically when called from inside a
+ * Japa test body (`getActiveTest()` returns the active test). When
+ * called from `group.each.setup` (where there is no active test yet),
+ * teardown is not auto-registered — callers should `return terminate`
+ * from the setup hook to wire it via Japa's setup-teardown convention.
  */
 export async function setupApp(
   parameters: Parameters<IgnitorFactory['merge']>[0] = {},
@@ -81,7 +84,13 @@ export async function setupApp(
   if (hooks.beforeReady) await hooks.beforeReady(testUtils.app)
   await testUtils.boot()
 
-  return { testUtils, app: testUtils.app }
+  const terminate = async () => {
+    await testUtils.app.terminate()
+  }
+
+  getActiveTest()?.cleanup(terminate)
+
+  return { testUtils, app: testUtils.app, terminate }
 }
 
 import { BaseModel, column } from '@adonisjs/lucid/orm'

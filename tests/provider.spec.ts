@@ -42,8 +42,6 @@ test.group('LabelerProvider lifecycle', () => {
       0,
       'ready() must not materialize labeler service in non-web environments'
     )
-
-    await app.terminate()
   })
 
   test('ready() does not log "Failed to acquire server" in non-web env', async ({ assert }) => {
@@ -86,7 +84,5 @@ test.group('LabelerProvider lifecycle', () => {
       0,
       `ready() must not log "Failed to acquire server" in non-web environments. Captured: ${JSON.stringify(errors)}`
     )
-
-    await app.terminate()
   })
 })

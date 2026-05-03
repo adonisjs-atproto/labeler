@@ -39,9 +39,11 @@ export async function configure(command: Configure) {
   const codemods = await command.createCodemods()
   const packagesToInstall: Packages = [{ name: '@atcute/cbor', isDevDependency: true }]
 
+  /* c8 ignore start -- installPackages shells out to pnpm/npm, can't run in tests */
   if (shouldInstallPackages) {
     await codemods.installPackages(packagesToInstall)
   }
+  /* c8 ignore stop */
 
   // Publish config file
   await codemods.makeUsingStub(stubsRoot, 'config.stub', {
