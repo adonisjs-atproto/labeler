@@ -61,13 +61,12 @@
     "url": "https://github.com/ThisIsMissEm/adonisjs-atproto-labeler"
   },
   "dependencies": {
-    "@atcute/atproto": "^3.1.10",
+    "@atcute/atproto": "^4.0.0",
     "@atcute/cbor": "^2.3.2",
     "@atcute/crypto": "^2.4.1",
-    "@atcute/labeler": "^0.1.0",
-    "@atcute/lexicons": "^1.2.9",
-    "@atcute/xrpc-server": "^0.1.11",
-    "@atcute/xrpc-server-node": "^0.1.1"
+    "@atcute/labeler": "^1.0.0",
+    "@atcute/lexicons": "^2.0.0",
+    "@thisismissem/adonisjs-atproto-xrpc": "file:.yalc/@thisismissem/adonisjs-atproto-xrpc"
   },
   "devDependencies": {
     "@adonisjs/assembler": "^8.0.0",

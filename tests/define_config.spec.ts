@@ -17,7 +17,10 @@ import { MemoryLabelStore } from '@atcute/labeler'
 import { InvalidArgumentsException } from '@adonisjs/core/exceptions'
 import { defineConfig } from '../src/define_config.js'
 
-const VALID_KEY = 'z42tngCsBgNjWWuyiXq5FgX8dviRTBSf9DqiA7fuWj3M9KRu'
+const VALID_P256_KEY = 'z42tngCsBgNjWWuyiXq5FgX8dviRTBSf9DqiA7fuWj3M9KRu'
+// Real secp256k1 multikey — pins that both supported atproto curves
+// (p256 + secp256k1) survive validation. Ozone defaults to secp256k1.
+const VALID_SECP256K1_KEY = 'z3vLdGADudhBE5oTCU82exMzDjbR8sx4xX6uy7gt3tr4mn8g'
 const VALID_DID = 'did:web:labeler.test'
 
 test.group('defineConfig', () => {
@@ -25,7 +28,7 @@ test.group('defineConfig', () => {
     const store = new MemoryLabelStore()
     const result = defineConfig({
       serviceDid: VALID_DID,
-      signingKey: new Secret(VALID_KEY),
+      signingKey: new Secret(VALID_P256_KEY),
       store,
     })
 
@@ -34,21 +37,37 @@ test.group('defineConfig', () => {
     assert.instanceOf(result.signingKey, Secret)
   })
 
-  test('throws when signingKey is not a valid multibase string', ({ assert }) => {
-    assert.throws(() => {
+  test('accepts a secp256k1 signingKey', ({ assert }) => {
+    const result = defineConfig({
+      serviceDid: VALID_DID,
+      signingKey: new Secret(VALID_SECP256K1_KEY),
+      store: new MemoryLabelStore(),
+    })
+
+    assert.equal(result.serviceDid, VALID_DID)
+  })
+
+  test('throws InvalidArgumentsException when signingKey is not a valid multibase string', ({
+    assert,
+  }) => {
+    try {
       defineConfig({
         serviceDid: VALID_DID,
         signingKey: new Secret('not-a-multibase-key'),
         store: new MemoryLabelStore(),
       })
-    })
+      assert.fail('defineConfig should have thrown')
+    } catch (err: any) {
+      assert.instanceOf(err, InvalidArgumentsException)
+      assert.include(err.message, 'signingKey')
+    }
   })
 
   test('throws InvalidArgumentsException when serviceDid is not a DID', ({ assert }) => {
     try {
       defineConfig({
         serviceDid: 'not-a-did',
-        signingKey: new Secret(VALID_KEY),
+        signingKey: new Secret(VALID_P256_KEY),
         store: new MemoryLabelStore(),
       })
       assert.fail('defineConfig should have thrown')
@@ -62,7 +81,7 @@ test.group('defineConfig', () => {
     try {
       defineConfig({
         serviceDid: VALID_DID,
-        signingKey: new Secret(VALID_KEY),
+        signingKey: new Secret(VALID_P256_KEY),
         store: null as any,
       })
       assert.fail('defineConfig should have thrown')
@@ -84,7 +103,7 @@ test.group('defineConfig', () => {
     try {
       defineConfig({
         serviceDid: VALID_DID,
-        signingKey: new Secret(VALID_KEY),
+        signingKey: new Secret(VALID_P256_KEY),
         store: partialStore,
       })
       assert.fail('defineConfig should have thrown')

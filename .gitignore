@@ -3,3 +3,5 @@ node_modules
 coverage
 tmp
 TODO.md
+.yalc/
+yalc.lock

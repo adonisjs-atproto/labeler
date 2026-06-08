@@ -1,7 +1,11 @@
 import type { Secret } from '@adonisjs/core/helpers'
 import type { LucidModel } from '@adonisjs/lucid/types/model'
 import type { ComAtprotoLabelDefs } from '@atcute/atproto'
+import type { P256PrivateKey, Secp256k1PrivateKey, FoundPrivateKey } from '@atcute/crypto'
 import type { LabelStore } from '@atcute/labeler'
+
+/** Imported, ready-to-sign atproto private key (either supported curve). */
+export type SigningKey = P256PrivateKey | Secp256k1PrivateKey
 
 /**
  * Strict structural constraint for the Lucid model that backs LucidLabelStore.
@@ -33,6 +37,27 @@ export type LabelerProviderConfig = {
   store: LabelStore
 }
 
-export type LabelerConfig = LabelerProviderConfig & {
+/**
+ * What `defineConfig` returns and what lives in `app.config`. The signing
+ * key is parsed (`{ type, privateKeyBytes }`) but not yet imported into a
+ * curve-specific PrivateKey instance — that happens once in the provider's
+ * container factory.
+ */
+export type LabelerConfig = {
   serviceDid: ComAtprotoLabelDefs.Label['src']
+  signingKey: Secret<FoundPrivateKey>
+  store: LabelStore
+}
+
+/**
+ * What `container.make('atproto.labeler.config')` yields. The signing key
+ * has been hydrated into a real `P256PrivateKey` / `Secp256k1PrivateKey`
+ * via `importRaw`. Consumers reading the config from the container get
+ * this shape; consumers reading from `app.config` directly get
+ * `LabelerConfig` (the un-hydrated form).
+ */
+export type LabelerRuntimeConfig = {
+  serviceDid: ComAtprotoLabelDefs.Label['src']
+  signingKey: Secret<SigningKey>
+  store: LabelStore
 }

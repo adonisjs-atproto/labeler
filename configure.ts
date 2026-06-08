@@ -31,6 +31,7 @@ export async function configure(command: Configure) {
 
   // Add provider to rc file
   await codemods.updateRcFile((rcFile) => {
+    rcFile.addProvider('@thisismissem/adonisjs-atproto-xrpc/provider')
     rcFile.addProvider(`${packageName}/provider`)
     rcFile.addCommand(`${packageName}/commands`)
   })

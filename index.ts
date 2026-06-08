@@ -23,5 +23,12 @@ export {
 } from '@atcute/labeler'
 export type { LabelStore, LabelEvent, LabelOp, SignedLabel } from '@atcute/labeler'
 
+export type { FoundPrivateKey as SigningKey } from '@atcute/crypto'
+
 // Re-export package-local types:
-export type { LabelerProviderConfig, LabelerConfig, LabelModel } from './src/types.js'
+export type {
+  LabelerProviderConfig,
+  LabelerConfig,
+  LabelerRuntimeConfig,
+  LabelModel,
+} from './src/types.js'

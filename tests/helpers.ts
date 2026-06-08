@@ -2,7 +2,10 @@ import { IgnitorFactory } from '@adonisjs/core/factories/core/ignitor'
 import { TestUtilsFactory } from '@adonisjs/core/factories/core/test_utils'
 import { Secret } from '@adonisjs/core/helpers'
 import { MemoryLabelStore } from '@atcute/labeler'
+import type { LabelStore } from '@atcute/labeler'
 import { getActiveTest } from '@japa/runner'
+import { createServer } from 'node:http'
+import { defineConfig } from '../src/define_config.ts'
 
 export const BASE_URL = new URL('../tmp/', import.meta.url)
 export const IMPORTER = (filePath: string) => {
@@ -13,18 +16,37 @@ export const IMPORTER = (filePath: string) => {
 }
 
 /**
- * Default test config for the labeler provider. The signing key is a
- * placeholder — the service factory parses it via parsePrivateMultikey,
- * but only when `atproto.labeler.service` is materialized. In non-web
- * test environments the env-gate in provider.ready() prevents that
- * materialization, so the placeholder never reaches the parser.
+ * Default test config for the labeler provider. Goes through `defineConfig`
+ * so the helper exercises the same validation path consumers hit at
+ * config-load. Pass a custom `store` to control what labels are visible
+ * during the test.
  */
-function defaultLabelerConfig() {
-  return {
+export function defaultLabelerConfig(store?: LabelStore) {
+  return defineConfig({
     serviceDid: 'did:web:labeler.test',
     signingKey: new Secret('z42tngCsBgNjWWuyiXq5FgX8dviRTBSf9DqiA7fuWj3M9KRu'),
-    store: new MemoryLabelStore(),
-  }
+    store: store ?? new MemoryLabelStore(),
+  })
+}
+
+const sharedProviders = [
+  () => import('@adonisjs/lucid/database_provider'),
+  () => import('@thisismissem/adonisjs-atproto-xrpc/provider'),
+  () => import('../providers/provider.js'),
+]
+
+const sharedConfig = {
+  database: {
+    connection: 'sqlite',
+    connections: {
+      sqlite: {
+        client: 'better-sqlite3',
+        connection: { filename: ':memory:' },
+        useNullAsDefault: true,
+      },
+    },
+  },
+  atproto_labeler: defaultLabelerConfig(),
 }
 
 /**
@@ -54,25 +76,8 @@ export async function setupApp(
     .withCoreProviders()
     .withCoreConfig()
     .merge({
-      rcFileContents: {
-        providers: [
-          () => import('@adonisjs/lucid/database_provider'),
-          () => import('../providers/provider.js'),
-        ],
-      },
-      config: {
-        database: {
-          connection: 'sqlite',
-          connections: {
-            sqlite: {
-              client: 'better-sqlite3',
-              connection: { filename: ':memory:' },
-              useNullAsDefault: true,
-            },
-          },
-        },
-        atproto_labeler: defaultLabelerConfig(),
-      },
+      rcFileContents: { providers: sharedProviders },
+      config: sharedConfig,
     })
     .merge(parameters)
 
@@ -91,6 +96,57 @@ export async function setupApp(
   getActiveTest()?.cleanup(terminate)
 
   return { testUtils, app: testUtils.app, terminate }
+}
+
+/**
+ * Setup an AdonisJS app with a running HTTP server for subscription tests.
+ *
+ * Extends `setupApp` by calling `app.start()` with a no-listen Node server,
+ * so `XrpcServer.start()` can install its WebSocket upgrade handler before
+ * `provider.ready()` completes. Returns `nodeServer` for use with
+ * `injectXrpcSubscription`.
+ */
+export async function setupWebApp(
+  parameters: Parameters<IgnitorFactory['merge']>[0] = {},
+  hooks: { beforeReady?: (app: any) => void | Promise<void> } = {}
+) {
+  const factory = new IgnitorFactory()
+    .withCoreProviders()
+    .withCoreConfig()
+    .merge({
+      rcFileContents: { providers: sharedProviders },
+      config: sharedConfig,
+    })
+    .merge(parameters)
+
+  const ignitor = factory.create(BASE_URL, { importer: IMPORTER })
+  const testUtils = new TestUtilsFactory().create(ignitor)
+
+  await testUtils.app.init()
+  await testUtils.app.boot()
+  if (hooks.beforeReady) await hooks.beforeReady(testUtils.app)
+  await testUtils.boot()
+
+  await testUtils.app.start(async () => {
+    const adonisServer = await testUtils.app.container.make('server')
+    adonisServer.use([() => import('@thisismissem/adonisjs-atproto-xrpc/middleware')])
+    await adonisServer.boot()
+    // Create a Node server WITHOUT .listen() — gives getNodeServer() a
+    // non-null target so XrpcServer can wire its upgrade listener.
+    const nodeServer = createServer(adonisServer.handle.bind(adonisServer))
+    adonisServer.setNodeServer(nodeServer)
+  })
+
+  const adonisServer = await testUtils.app.container.make('server')
+  const nodeServer = adonisServer.getNodeServer()!
+
+  const terminate = async () => {
+    await testUtils.app.terminate()
+  }
+
+  getActiveTest()?.cleanup(terminate)
+
+  return { testUtils, app: testUtils.app, nodeServer, terminate }
 }
 
 import { BaseModel, column } from '@adonisjs/lucid/orm'

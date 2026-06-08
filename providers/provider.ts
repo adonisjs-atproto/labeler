@@ -1,21 +1,21 @@
 import type { ApplicationService } from '@adonisjs/core/types'
-import type { LabelerConfig } from '../src/types.js'
+import type { LabelerConfig, LabelerRuntimeConfig } from '../src/types.js'
 import type {} from '@atcute/atproto'
+import { Secret } from '@adonisjs/core/helpers'
 import { RuntimeException } from '@adonisjs/core/exceptions'
-import { ComAtprotoLabelSubscribeLabels } from '@atcute/atproto'
-import { P256PrivateKey, parsePrivateMultikey } from '@atcute/crypto'
-import { FutureCursorError, Labeler } from '@atcute/labeler'
-import { XRPCRouter, XRPCSubscriptionError } from '@atcute/xrpc-server'
-import { createNodeWebSocket } from '@atcute/xrpc-server-node'
-
+import { ComAtprotoLabelSubscribeLabels, ComAtprotoLabelQueryLabels } from '@atcute/atproto'
+import { P256PrivateKey, Secp256k1PrivateKey } from '@atcute/crypto'
+import { Labeler } from '@atcute/labeler'
+import Controller from '../src/label_controller.ts'
+import type { ContainerProviderContract } from '@adonisjs/core/types/app'
 declare module '@adonisjs/core/types' {
   export interface ContainerBindings {
-    'atproto.labeler.config': LabelerConfig
+    'atproto.labeler.config': LabelerRuntimeConfig
     'atproto.labeler.service': Labeler
   }
 }
 
-export default class AtProtoProvider {
+export default class AtProtoProvider implements ContainerProviderContract {
   constructor(protected app: ApplicationService) {}
 
   register() {
@@ -32,81 +32,37 @@ export default class AtProtoProvider {
         )
       }
 
-      return config
+      // Hydrate the parsed multikey into a real `PrivateKey`. Labelers can sign
+      // with either P-256 or secp256k1 (Ozone defaults to secp256k1).
+      const parsedSigningKey = config.signingKey.release()
+      const signingKey =
+        parsedSigningKey.type === 'p256'
+          ? await P256PrivateKey.importRaw(parsedSigningKey.privateKeyBytes)
+          : await Secp256k1PrivateKey.importRaw(parsedSigningKey.privateKeyBytes)
+
+      return {
+        serviceDid: config.serviceDid,
+        signingKey: new Secret(signingKey),
+        store: config.store,
+      }
     })
   }
 
   async boot() {
     const config = await this.app.container.make('atproto.labeler.config')
+    const router = await this.app.container.make('router')
 
     this.app.container.singleton(Labeler, async () => {
-      const { privateKeyBytes } = parsePrivateMultikey(config.signingKey.release())
-
-      const labeler = new Labeler({
+      return new Labeler({
         serviceDid: config.serviceDid,
-        signingKey: await P256PrivateKey.importRaw(privateKeyBytes),
+        signingKey: config.signingKey.release(),
         store: config.store,
       })
-
-      return labeler
     })
 
     this.app.container.alias('atproto.labeler.service', Labeler)
+
+    router.xrpc.query(ComAtprotoLabelQueryLabels, [Controller, 'list'])
+    router.xrpc.subscription(ComAtprotoLabelSubscribeLabels, [Controller, 'subscribe'])
   }
-
-  async ready() {
-    // Skip WebSocket handler installation outside the HTTP server context.
-    // ace commands, tests, and repl all run providers through ready() but
-    // never start a server — without this gate we'd log a misleading error.
-    if (this.app.getEnvironment() !== 'web') return
-
-    const appServer = await this.app.container.make('server')
-    const logger = await this.app.container.make('logger')
-
-    try {
-      const labeler = await this.app.container.make('atproto.labeler.service')
-
-      const server = appServer.getNodeServer()
-      if (!server) {
-        logger.error('Failed to acquire server to install labeler websocket handler on.')
-        return
-      }
-
-      const ws = createNodeWebSocket()
-      const router = new XRPCRouter({ websocket: ws.adapter })
-
-      router.addSubscription(ComAtprotoLabelSubscribeLabels, {
-        async *handler({ params, signal }) {
-          try {
-            for await (const event of labeler.subscribeLabels({
-              cursor: params.cursor,
-              signal: signal,
-            })) {
-              logger.debug(event, 'label')
-              yield {
-                $type: 'com.atproto.label.subscribeLabels#labels',
-                ...event,
-              }
-            }
-          } catch (err) {
-            if (err instanceof FutureCursorError) {
-              throw new XRPCSubscriptionError({ error: 'FutureCursor' })
-            }
-            throw err
-          }
-        },
-      })
-
-      ws.injectWebSocket(server, router)
-      logger.trace('Labeler WebSocket handler installed at /xrpc/com.atproto.label.subscribeLabels')
-    } catch (err) {
-      // Surface anything that goes wrong during ready() — without this,
-      // exceptions from container.make / injectWebSocket get swallowed
-      // by the AdonisJS lifecycle and the only symptom is a 404 on the
-      // subscription endpoint.
-      logger.error({ err }, 'Failed to install labeler WebSocket handler')
-    }
-  }
-
-  async shutdown() {}
 }
