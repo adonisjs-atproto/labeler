@@ -1,5 +1,5 @@
 {
-  "name": "@thisismissem/adonisjs-atproto-labeler",
+  "name": "@adonisjs-atproto/labeler",
   "description": "Adonis.js provider for building an AT Protocol Labeler",
   "version": "0.0.0",
   "engines": {
@@ -58,7 +58,7 @@
     }
   ],
   "repository": {
-    "url": "https://github.com/ThisIsMissEm/adonisjs-atproto-labeler"
+    "url": "https://github.com/adonisjs-atproto/labeler"
   },
   "dependencies": {
     "@atcute/atproto": "^3.1.10",

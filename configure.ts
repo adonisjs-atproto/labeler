@@ -18,7 +18,7 @@ import { stubsRoot } from './stubs/main.ts'
 type Packages = { name: string; isDevDependency: boolean }[]
 
 export async function configure(command: Configure) {
-  const packageName = '@thisismissem/adonisjs-atproto-labeler'
+  const packageName = '@adonisjs-atproto/labeler'
 
   /**
    * Prompt when `install` or `--no-install` flags are
