@@ -6,14 +6,21 @@
 import { BaseSchema } from '@adonisjs/lucid/schema'
 
 export default class extends BaseSchema {
-  protected tableName = 'oauth_sessions'
+  protected tableName = 'labels'
 
   async up() {
     this.schema.createTable(this.tableName, (table) => {
-      table.text('sub').primary()
-      table.text('value').notNullable()
-
-      table.timestamp('updated_at')
+      table.increments('seq')
+      table.text('src').notNullable()
+      table.text('uri').notNullable()
+      table.text('cid').nullable()
+      table.string('val', 128).notNullable()
+      table.boolean('neg').notNullable().defaultTo(false)
+      table.text('cts').notNullable()
+      table.text('exp').nullable()
+      table.binary('sig').notNullable()
+      table.integer('ver').nullable()
+      table.index(['uri', 'val'], 'labels_uri_val_index')
     })
   }
 

@@ -1,21 +1,21 @@
 import type { ApplicationService } from '@adonisjs/core/types'
-import type { LabelerConfig } from '../src/types.js'
+import type { LabelerConfig, LabelerRuntimeConfig } from '../src/types.js'
 import type {} from '@atcute/atproto'
+import { Secret } from '@adonisjs/core/helpers'
 import { RuntimeException } from '@adonisjs/core/exceptions'
-import { ComAtprotoLabelSubscribeLabels } from '@atcute/atproto'
-import { P256PrivateKey, parsePrivateMultikey } from '@atcute/crypto'
-import { FutureCursorError, Labeler, MemoryLabelStore } from '@atcute/labeler'
-import { XRPCRouter, XRPCSubscriptionError } from '@atcute/xrpc-server'
-import { createNodeWebSocket } from '@atcute/xrpc-server-node'
-
+import { ComAtprotoLabelSubscribeLabels, ComAtprotoLabelQueryLabels } from '@atcute/atproto'
+import { P256PrivateKey, Secp256k1PrivateKey } from '@atcute/crypto'
+import { Labeler } from '@atcute/labeler'
+import Controller from '../src/label_controller.ts'
+import type { ContainerProviderContract } from '@adonisjs/core/types/app'
 declare module '@adonisjs/core/types' {
   export interface ContainerBindings {
-    'atproto.labeler.config': LabelerConfig
+    'atproto.labeler.config': LabelerRuntimeConfig
     'atproto.labeler.service': Labeler
   }
 }
 
-export default class AtProtoProvider {
+export default class AtProtoProvider implements ContainerProviderContract {
   constructor(protected app: ApplicationService) {}
 
   register() {
@@ -28,67 +28,41 @@ export default class AtProtoProvider {
 
       if (!config.store) {
         throw new RuntimeException(
-          'Invalid config exported from "config/atproto-labeler.ts" file. Missing correct `stores` provider'
+          'Invalid config exported from "config/atproto-labeler.ts" file. Missing correct `store` provider'
         )
       }
 
-      return config
+      // Hydrate the parsed multikey into a real `PrivateKey`. Labelers can sign
+      // with either P-256 or secp256k1 (Ozone defaults to secp256k1).
+      const parsedSigningKey = config.signingKey.release()
+      const signingKey =
+        parsedSigningKey.type === 'p256'
+          ? await P256PrivateKey.importRaw(parsedSigningKey.privateKeyBytes)
+          : await Secp256k1PrivateKey.importRaw(parsedSigningKey.privateKeyBytes)
+
+      return {
+        serviceDid: config.serviceDid,
+        signingKey: new Secret(signingKey),
+        store: config.store,
+      }
     })
   }
 
   async boot() {
     const config = await this.app.container.make('atproto.labeler.config')
+    const router = await this.app.container.make('router')
 
-    this.app.container.singleton('atproto.labeler.service', async () => {
-      const { privateKeyBytes } = parsePrivateMultikey(config.signingKey.release())
-
-      const labeler = new Labeler({
+    this.app.container.singleton(Labeler, async () => {
+      return new Labeler({
         serviceDid: config.serviceDid,
-        signingKey: await P256PrivateKey.importRaw(privateKeyBytes),
-        store: new MemoryLabelStore(),
+        signingKey: config.signingKey.release(),
+        store: config.store,
       })
-
-      return labeler
-    })
-  }
-
-  async ready() {
-    const appServer = await this.app.container.make('server')
-    const logger = await this.app.container.make('logger')
-    const labeler = await this.app.container.make('atproto.labeler.service')
-
-    const server = appServer.getNodeServer()
-    if (!server) {
-      logger.error('Failed to acquire server to install labeler websocket handler on.')
-      return
-    }
-
-    const ws = createNodeWebSocket()
-    const router = new XRPCRouter({ websocket: ws.adapter })
-
-    router.addSubscription(ComAtprotoLabelSubscribeLabels, {
-      async *handler({ params, signal }) {
-        try {
-          for await (const event of labeler.subscribeLabels({
-            cursor: params.cursor,
-            signal: signal,
-          })) {
-            yield {
-              $type: 'com.atproto.label.subscribeLabels#labels',
-              ...event,
-            }
-          }
-        } catch (err) {
-          if (err instanceof FutureCursorError) {
-            throw new XRPCSubscriptionError({ error: 'FutureCursor' })
-          }
-          throw err
-        }
-      },
     })
 
-    ws.injectWebSocket(server, router)
-  }
+    this.app.container.alias('atproto.labeler.service', Labeler)
 
-  async shutdown() {}
+    router.xrpc.query(ComAtprotoLabelQueryLabels, [Controller, 'list'])
+    router.xrpc.subscription(ComAtprotoLabelSubscribeLabels, [Controller, 'subscribe'])
+  }
 }

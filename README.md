@@ -25,9 +25,9 @@ node ace configure @thisismissem/adonisjs-atproto-labeler
 ### Next steps
 
 1. Run the migrations
-3. Build your labelers
-4. ???
-5. Profit!!
+2. Build your labelers
+3. ???
+4. Profit!!
 
 ---
 

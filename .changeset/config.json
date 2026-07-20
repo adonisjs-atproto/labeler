@@ -1,6 +1,9 @@
 {
   "$schema": "https://unpkg.com/@changesets/config@3.1.2/schema.json",
-  "changelog": ["@changesets/changelog-github", { "repo": "thisismissem/adonisjs-atproto-labeler" }],
+  "changelog": [
+    "@changesets/changelog-github",
+    { "repo": "thisismissem/adonisjs-atproto-labeler" }
+  ],
   "commit": false,
   "fixed": [],
   "linked": [],

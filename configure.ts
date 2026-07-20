@@ -15,33 +15,14 @@
 import type Configure from '@adonisjs/core/commands/configure'
 import { stubsRoot } from './stubs/main.ts'
 
-type Packages = { name: string; isDevDependency: boolean }[]
-
 export async function configure(command: Configure) {
   const packageName = '@thisismissem/adonisjs-atproto-labeler'
-
-  /**
-   * Prompt when `install` or `--no-install` flags are
-   * not used
-   */
-  let shouldInstallPackages: boolean | undefined = command.parsedFlags.install
-  if (shouldInstallPackages === undefined) {
-    shouldInstallPackages = await command.prompt.confirm(
-      `Do you want to install additional packages required by "${packageName}"?`,
-      { default: true }
-    )
-  }
 
   const useLucid = await command.prompt.confirm(`Do you want to use Lucid for storing Labels?`, {
     default: true,
   })
 
   const codemods = await command.createCodemods()
-  const packagesToInstall: Packages = [{ name: '@atcute/cbor', isDevDependency: true }]
-
-  if (shouldInstallPackages) {
-    await codemods.installPackages(packagesToInstall)
-  }
 
   // Publish config file
   await codemods.makeUsingStub(stubsRoot, 'config.stub', {
@@ -50,31 +31,25 @@ export async function configure(command: Configure) {
 
   // Add provider to rc file
   await codemods.updateRcFile((rcFile) => {
+    rcFile.addProvider('@thisismissem/adonisjs-atproto-xrpc/provider')
     rcFile.addProvider(`${packageName}/provider`)
     rcFile.addCommand(`${packageName}/commands`)
   })
 
-  // Add migrations:
+  // Add migrations and model when using Lucid
   if (useLucid) {
-    // await codemods.makeUsingStub(stubsRoot, 'migrations/labels.stub', {
-    //   entity: command.app.generators.createEntity('labels'),
-    //   migration: {
-    //     folder: 'database/migrations',
-    //     fileName: `${new Date().getTime()}_create_labels_table.ts`,
-    //   },
-    // })
-    // // Add models:
-    // await codemods.makeUsingStub(stubsRoot, 'models/labels.stub', {
-    //   entity: command.app.generators.createEntity('labels'),
-    // })
-  }
+    await codemods.makeUsingStub(stubsRoot, 'migrations/labels.stub', {
+      entity: command.app.generators.createEntity('labels'),
+      migration: {
+        folder: 'database/migrations',
+        fileName: `${new Date().getTime()}_create_labels_table.ts`,
+      },
+    })
 
-  // Register the middleware:
-  await codemods.registerMiddleware('router', [
-    {
-      path: `${packageName}/atproto_labeler_middleware`,
-    },
-  ])
+    await codemods.makeUsingStub(stubsRoot, 'models/label.stub', {
+      entity: command.app.generators.createEntity('label'),
+    })
+  }
 
   await codemods.defineEnvVariables({
     ATPROTO_LABELER_DID: 'did:plc:123',
@@ -93,17 +68,10 @@ export async function configure(command: Configure) {
 
   const instructions = command.ui.instructions()
   instructions.heading('AT Protocol Labeler setup!')
-  if (!shouldInstallPackages) instructions.add('Install the packages listed below')
   if (useLucid) {
     instructions.add('Run the migrations: node ace migration:run')
   } else {
-    instructions.add('Modify config/atproto_labeler.ts to have `stores` implementations')
+    instructions.add('Modify config/atproto_labeler.ts to configure your chosen store')
   }
   instructions.render()
-
-  if (!shouldInstallPackages) {
-    console.log('')
-    await codemods.listPackagesToInstall(packagesToInstall)
-    console.log('')
-  }
 }

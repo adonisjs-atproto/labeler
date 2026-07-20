@@ -18,8 +18,8 @@
     "./commands": "./build/commands/main.js",
     "./provider": "./build/providers/provider.js",
     "./service": "./build/services/labeler.js",
-    "./types": "./build/src/types.js",
-    "./atproto_labeler_middleware": "./build/src/middleware.js"
+    "./store": "./build/src/lucid_label_store.js",
+    "./types": "./build/src/types.js"
   },
   "scripts": {
     "changeset": "changeset",
@@ -61,29 +61,31 @@
     "url": "https://github.com/ThisIsMissEm/adonisjs-atproto-labeler"
   },
   "dependencies": {
-    "@atcute/atproto": "^3.1.10",
+    "@atcute/atproto": "^4.0.0",
+    "@atcute/cbor": "^2.3.2",
     "@atcute/crypto": "^2.4.1",
-    "@atcute/labeler": "^0.1.0",
-    "@atcute/lexicons": "^1.2.9",
-    "@atcute/xrpc-server": "^0.1.11",
-    "@atcute/xrpc-server-node": "^0.1.1"
+    "@atcute/labeler": "^1.0.0",
+    "@atcute/lexicons": "^2.0.0",
+    "@thisismissem/adonisjs-atproto-xrpc": "file:.yalc/@thisismissem/adonisjs-atproto-xrpc"
   },
   "devDependencies": {
     "@adonisjs/assembler": "^8.0.0",
     "@adonisjs/core": "^7.0.1",
     "@adonisjs/eslint-config": "3.0.0",
-    "@adonisjs/lucid": "^22.1.0",
+    "@adonisjs/lucid": "^22.4.0",
     "@adonisjs/prettier-config": "^1.4.5",
     "@adonisjs/tsconfig": "^2.0.0",
     "@arethetypeswrong/cli": "^0.18.2",
-    "@atcute/cbor": "^2.3.2",
     "@changesets/changelog-github": "^0.6.0",
     "@changesets/cli": "^2.30.0",
     "@japa/assert": "^4.2.0",
+    "@japa/file-system": "^3.0.0",
     "@japa/runner": "^5.3.0",
     "@poppinss/ts-exec": "^1.4.4",
+    "@types/better-sqlite3": "^7.6.13",
     "@types/luxon": "^3.7.1",
     "@types/node": "^25.3.5",
+    "better-sqlite3": "^12.9.0",
     "c8": "^11.0.0",
     "copyfiles": "^2.4.1",
     "eslint": "^10.0.3",
@@ -97,15 +99,14 @@
   "peerDependencies": {
     "@adonisjs/assembler": "^8.0.0",
     "@adonisjs/core": "^7.0.1",
-    "@adonisjs/lucid": "^22.1.0",
-    "@atcute/cbor": "^2.3.2",
+    "@adonisjs/lucid": "^22.4.0",
     "luxon": "^3.7.2"
   },
   "peerDependenciesMeta": {
     "@adonisjs/assembler": {
       "optional": true
     },
-    "@atcute/cbor": {
+    "@adonisjs/lucid": {
       "optional": true
     }
   },
@@ -121,8 +122,8 @@
       "./commands/labeler_debug.ts",
       "./providers/provider.ts",
       "./services/labeler.ts",
-      "./src/middleware.ts",
-      "./src/types.ts"
+      "./src/types.ts",
+      "./src/lucid_label_store.ts"
     ],
     "outDir": "./build",
     "clean": true,
@@ -144,5 +145,10 @@
       "tests/**"
     ]
   },
-  "prettier": "@adonisjs/prettier-config"
+  "prettier": "@adonisjs/prettier-config",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "better-sqlite3"
+    ]
+  }
 }
