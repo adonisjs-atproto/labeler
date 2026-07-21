@@ -11,7 +11,7 @@ The following packages should already be installed and configured in your projec
 ## Installation
 
 ```sh
-node ace add @thisismissem/adonisjs-atproto-labeler
+node ace add @adonisjs-atproto/labeler
 ```
 
 ### Configuring
@@ -19,15 +19,15 @@ node ace add @thisismissem/adonisjs-atproto-labeler
 If you didn't use `node ace add` you can later run the configuration using:
 
 ```sh
-node ace configure @thisismissem/adonisjs-atproto-labeler
+node ace configure @adonisjs-atproto/labeler
 ```
 
 ### Next steps
 
 1. Run the migrations
-3. Build your labelers
-4. ???
-5. Profit!!
+2. Build your labelers
+3. ???
+4. Profit!!
 
 ---
 

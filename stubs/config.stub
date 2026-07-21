@@ -5,9 +5,9 @@
 {{#if useLucid }}
 import {
   defineConfig,
-} from '@thisismissem/adonisjs-atproto-labeler'
+} from '@adonisjs-atproto/labeler'
 {{#else}}
-import { defineConfig } from '@thisismissem/adonisjs-atproto-labeler'
+import { defineConfig } from '@adonisjs-atproto/labeler'
 {{/if}}
 import env from '#start/env'
 

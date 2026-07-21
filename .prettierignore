@@ -1,1 +1,7 @@
+build
+node_modules
+coverage
+tmp
 pnpm-lock.yaml
+docs/plans
+docs/specs
