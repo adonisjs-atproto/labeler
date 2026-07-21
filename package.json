@@ -1,7 +1,7 @@
 {
   "name": "@adonisjs-atproto/labeler",
   "description": "Adonis.js provider for building an AT Protocol Labeler",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "engines": {
     "node": ">=24"
   },
